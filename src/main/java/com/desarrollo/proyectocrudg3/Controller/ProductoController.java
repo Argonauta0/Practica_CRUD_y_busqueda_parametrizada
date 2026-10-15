@@ -1,11 +1,6 @@
 package com.desarrollo.proyectocrudg3.Controller;
 
-import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.TextField;
-
 public class ProductoController {
-
     // Estos son los métodos iniciales para empezar a trabajar
 
     private void configurarTableView(){
@@ -307,4 +302,867 @@ public class ProductoController {
                 )
         );
     }
+    @FXML
+    private void guardarProducto() {
 
+        if (!validarFormulario()) {
+            return;
+        }
+
+
+
+        String codigo =
+                txtCodigo.getText().trim();
+
+
+
+        /*
+         * Validación preventiva de UNIQUE.
+         */
+        if (existeCodigo(codigo, null)) {
+
+            mostrarAlerta(
+                    Alert.AlertType.WARNING,
+                    "Código duplicado",
+                    "El código " + codigo +
+                            " ya pertenece a otro producto."
+            );
+
+            txtCodigo.requestFocus();
+
+            return;
+        }
+
+
+
+        String sql = """
+                INSERT INTO catalogos.productos
+                (
+                    codigo,
+                    nombre,
+                    descripcion,
+                    precio,
+                    stock,
+                    fecha_creacion,
+                    id_categoria,
+                    id_marca,
+                    estado
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                """;
+
+
+
+        try (
+                Connection conexion =
+                        ConexionBD.getConnection();
+
+                PreparedStatement ps =
+                        conexion.prepareStatement(sql)
+        ) {
+
+            ps.setString(
+                    1,
+                    codigo
+            );
+
+            ps.setString(
+                    2,
+                    txtNombre.getText().trim()
+            );
+
+            ps.setString(
+                    3,
+                    txtDescripcion.getText().trim()
+            );
+
+            ps.setBigDecimal(
+                    4,
+                    new BigDecimal(
+                            txtPrecio.getText().trim()
+                    )
+            );
+
+            ps.setInt(
+                    5,
+                    Integer.parseInt(
+                            txtStock.getText().trim()
+                    )
+            );
+
+            ps.setDate(
+                    6,
+                    Date.valueOf(
+                            dpFechaCreacion.getValue()
+                    )
+            );
+
+            ps.setInt(
+                    7,
+                    cmbCategoria.getValue()
+                            .getIdCategoria()
+            );
+
+            ps.setInt(
+                    8,
+                    cmbMarca.getValue()
+                            .getIdMarca()
+            );
+
+
+
+            int filasAfectadas =
+                    ps.executeUpdate();
+
+
+
+            if (filasAfectadas > 0) {
+
+                mostrarAlerta(
+                        Alert.AlertType.INFORMATION,
+                        "Registro guardado",
+                        "El producto fue registrado correctamente."
+                );
+
+                limpiarFormulario();
+
+                cargarProductos();
+            }
+
+        } catch (SQLException e) {
+
+            /*
+             * Aunque JavaFX realizó previamente la comprobación,
+             * PostgreSQL continúa siendo la autoridad final.
+             *
+             * SQLState 23505 corresponde normalmente a una
+             * violación de UNIQUE en PostgreSQL.
+             */
+            if ("23505".equals(e.getSQLState())) {
+
+                mostrarAlerta(
+                        Alert.AlertType.WARNING,
+                        "Registro duplicado",
+                        "El código ingresado ya existe."
+                );
+
+            } else {
+
+                mostrarErrorBaseDatos(
+                        "No se pudo guardar el producto.",
+                        e
+                );
+            }
+        }
+    }
+
+    @FXML
+    private void actualizarProducto() {
+
+        Producto productoSeleccionado =
+                tblProductos.getSelectionModel()
+                        .getSelectedItem();
+
+
+        if (productoSeleccionado == null) {
+
+            mostrarAlerta(
+                    Alert.AlertType.WARNING,
+                    "Producto no seleccionado",
+                    "Seleccione un producto del TableView antes de actualizar."
+            );
+
+            return;
+        }
+
+
+        if (!validarFormulario()) {
+            return;
+        }
+
+
+        String codigo =
+                txtCodigo.getText().trim();
+
+
+        /*
+         * Se comprueba que otro producto diferente
+         * no esté utilizando el mismo código.
+         */
+        if (existeCodigo(
+                codigo,
+                productoSeleccionado.getIdProducto()
+        )) {
+
+            mostrarAlerta(
+                    Alert.AlertType.WARNING,
+                    "Código duplicado",
+                    "El código ingresado pertenece a otro producto."
+            );
+
+            txtCodigo.requestFocus();
+
+            return;
+        }
+
+
+        String sql = """
+                UPDATE catalogos.productos
+
+                SET
+                    codigo = ?,
+                    nombre = ?,
+                    descripcion = ?,
+                    precio = ?,
+                    stock = ?,
+                    fecha_creacion = ?,
+                    id_categoria = ?,
+                    id_marca = ?
+
+                WHERE id_producto = ?
+                """;
+
+
+        try (
+                Connection conexion =
+                        ConexionBD.getConnection();
+
+                PreparedStatement ps =
+                        conexion.prepareStatement(sql)
+        ) {
+
+            ps.setString(
+                    1,
+                    codigo
+            );
+
+            ps.setString(
+                    2,
+                    txtNombre.getText().trim()
+            );
+
+            ps.setString(
+                    3,
+                    txtDescripcion.getText().trim()
+            );
+
+            ps.setBigDecimal(
+                    4,
+                    new BigDecimal(
+                            txtPrecio.getText().trim()
+                    )
+            );
+
+            ps.setInt(
+                    5,
+                    Integer.parseInt(
+                            txtStock.getText().trim()
+                    )
+            );
+
+            ps.setDate(
+                    6,
+                    Date.valueOf(
+                            dpFechaCreacion.getValue()
+                    )
+            );
+
+            ps.setInt(
+                    7,
+                    cmbCategoria.getValue()
+                            .getIdCategoria()
+            );
+
+            ps.setInt(
+                    8,
+                    cmbMarca.getValue()
+                            .getIdMarca()
+            );
+
+            ps.setInt(
+                    9,
+                    productoSeleccionado.getIdProducto()
+            );
+
+
+            int filasAfectadas =
+                    ps.executeUpdate();
+
+
+            if (filasAfectadas > 0) {
+
+                mostrarAlerta(
+                        Alert.AlertType.INFORMATION,
+                        "Registro actualizado",
+                        "El producto fue actualizado correctamente."
+                );
+
+                limpiarFormulario();
+
+                cargarProductos();
+            }
+
+        } catch (SQLException e) {
+
+            if ("23505".equals(e.getSQLState())) {
+
+                mostrarAlerta(
+                        Alert.AlertType.WARNING,
+                        "Código duplicado",
+                        "El código ingresado ya está siendo utilizado."
+                );
+
+            } else {
+
+                mostrarErrorBaseDatos(
+                        "No se pudo actualizar el producto.",
+                        e
+                );
+            }
+        }
+    }
+
+    @FXML
+    private void eliminarProducto() {
+
+        Producto productoSeleccionado =
+                tblProductos.getSelectionModel()
+                        .getSelectedItem();
+
+
+        if (productoSeleccionado == null) {
+
+            mostrarAlerta(
+                    Alert.AlertType.WARNING,
+                    "Producto no seleccionado",
+                    "Seleccione un producto antes de eliminarlo."
+            );
+
+            return;
+        }
+
+
+        /*
+         * Se solicita confirmación para evitar que el usuario
+         * desactive accidentalmente un registro.
+         */
+        Alert confirmacion =
+                new Alert(Alert.AlertType.CONFIRMATION);
+
+        confirmacion.setTitle(
+                "Confirmar eliminación"
+        );
+
+        confirmacion.setHeaderText(
+                "Eliminar producto"
+        );
+
+        confirmacion.setContentText(
+                "¿Desea desactivar el producto "
+                        + productoSeleccionado.getNombre()
+                        + "?"
+        );
+
+
+        Optional<ButtonType> respuesta =
+                confirmacion.showAndWait();
+
+
+        if (
+                respuesta.isEmpty()
+                        ||
+                        respuesta.get() != ButtonType.OK
+        ) {
+
+            return;
+        }
+
+
+        String sql = """
+                UPDATE catalogos.productos
+                SET estado = 0
+                WHERE id_producto = ?
+                """;
+
+
+        try (
+                Connection conexion =
+                        ConexionBD.getConnection();
+
+                PreparedStatement ps =
+                        conexion.prepareStatement(sql)
+        ) {
+
+            ps.setInt(
+                    1,
+                    productoSeleccionado.getIdProducto()
+            );
+
+
+            int filasAfectadas =
+                    ps.executeUpdate();
+
+
+            if (filasAfectadas > 0) {
+
+                mostrarAlerta(
+                        Alert.AlertType.INFORMATION,
+                        "Producto eliminado",
+                        "El producto fue desactivado correctamente."
+                );
+
+                limpiarFormulario();
+
+                cargarProductos();
+            }
+
+        } catch (SQLException e) {
+
+            mostrarErrorBaseDatos(
+                    "No se pudo eliminar el producto.",
+                    e
+            );
+        }
+    }
+    @FXML
+    private void buscarProductos() {
+        listaProductos.clear();
+
+        /*
+         * La consulta inicia con los INNER JOIN necesarios
+         * y con una condición permanente:
+         *
+         * p.estado = 1
+         *
+         * De esta forma nunca mostramos productos
+         * eliminados lógicamente.
+         */
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                    p.id_producto,
+                    p.codigo,
+                    p.nombre,
+                    p.descripcion,
+                    p.precio,
+                    p.stock,
+                    p.fecha_creacion,
+                    c.id_categoria,
+                    c.nombre AS categoria,
+                    m.id_marca,
+                    m.nombre AS marca,
+                    p.estado
+                FROM catalogos.productos p
+                INNER JOIN catalogos.categorias c
+                    ON p.id_categoria = c.id_categoria
+                INNER JOIN catalogos.marcas m
+                    ON p.id_marca = m.id_marca
+                WHERE p.estado = 1
+                """);
+
+
+
+        /*
+         * Aquí almacenaremos los valores que posteriormente
+         * serán enviados al PreparedStatement.
+         */
+        List<Object> parametros =
+                new ArrayList<>();
+
+        String texto =
+                txtFiltroTexto.getText().trim();
+
+
+
+        if (!texto.isBlank()) {
+
+            /*
+             * OR permite que el texto coincida con código
+             * o nombre.
+             *
+             * ILIKE permite búsquedas parciales sin importar
+             * mayúsculas y minúsculas.
+             */
+            sql.append("""
+                   
+                    AND (
+                        p.codigo ILIKE ?
+                        OR p.nombre ILIKE ?
+                    )
+                    """);
+
+
+
+            parametros.add(
+                    "%" + texto + "%"
+            );
+
+            parametros.add(
+                    "%" + texto + "%"
+            );
+        }
+
+        Categoria categoria =
+                cmbFiltroCategoria.getValue();
+
+
+
+        if (categoria != null) {
+
+            sql.append("""
+                   
+                    AND p.id_categoria = ?
+                    """);
+
+            parametros.add(
+                    categoria.getIdCategoria()
+            );
+        }
+
+        LocalDate fechaDesde =
+                dpFiltroDesde.getValue();
+
+
+
+        if (fechaDesde != null) {
+
+            sql.append("""
+                   
+                    AND p.fecha_creacion >= ?
+                    """);
+
+            parametros.add(fechaDesde);
+        }
+
+        LocalDate fechaHasta =
+                dpFiltroHasta.getValue();
+
+
+
+        if (fechaHasta != null) {
+
+            sql.append("""
+                   
+                    AND p.fecha_creacion <= ?
+                    """);
+
+            parametros.add(fechaHasta);
+        }
+
+
+
+        /*
+         * Verificamos que las fechas tengan sentido.
+         *
+         * "Desde" no debería ser posterior a "Hasta".
+         */
+        if (
+                fechaDesde != null
+                        &&
+                        fechaHasta != null
+                        &&
+                        fechaDesde.isAfter(fechaHasta)
+        ) {
+
+            mostrarAlerta(
+                    Alert.AlertType.WARNING,
+                    "Rango de fechas incorrecto",
+                    "La fecha inicial no puede ser posterior a la fecha final."
+            );
+
+            return;
+        }
+
+        BigDecimal precioMinimo = null;
+
+
+
+        if (!txtPrecioMin.getText().isBlank()) {
+
+            try {
+
+                precioMinimo =
+                        new BigDecimal(
+                                txtPrecioMin
+                                        .getText()
+                                        .trim()
+                        );
+
+
+
+                if (
+                        precioMinimo.compareTo(
+                                BigDecimal.ZERO
+                        ) < 0
+                ) {
+
+                    mostrarAlerta(
+                            Alert.AlertType.WARNING,
+                            "Precio incorrecto",
+                            "El precio mínimo no puede ser negativo."
+                    );
+
+                    return;
+                }
+
+
+
+                sql.append("""
+                       
+                        AND p.precio >= ?
+                        """);
+
+                parametros.add(precioMinimo);
+
+            } catch (NumberFormatException e) {
+
+                mostrarAlerta(
+                        Alert.AlertType.WARNING,
+                        "Precio incorrecto",
+                        "El precio mínimo debe ser numérico."
+                );
+
+                txtPrecioMin.requestFocus();
+
+                return;
+            }
+        }
+
+        BigDecimal precioMaximo = null;
+
+
+
+        if (!txtPrecioMax.getText().isBlank()) {
+
+            try {
+
+                precioMaximo =
+                        new BigDecimal(
+                                txtPrecioMax
+                                        .getText()
+                                        .trim()
+                        );
+
+
+
+                if (
+                        precioMaximo.compareTo(
+                                BigDecimal.ZERO
+                        ) < 0
+                ) {
+
+                    mostrarAlerta(
+                            Alert.AlertType.WARNING,
+                            "Precio incorrecto",
+                            "El precio máximo no puede ser negativo."
+                    );
+
+                    return;
+                }
+
+
+
+                sql.append("""
+                       
+                        AND p.precio <= ?
+                        """);
+
+                parametros.add(precioMaximo);
+
+            } catch (NumberFormatException e) {
+
+                mostrarAlerta(
+                        Alert.AlertType.WARNING,
+                        "Precio incorrecto",
+                        "El precio máximo debe ser numérico."
+                );
+
+                txtPrecioMax.requestFocus();
+
+                return;
+            }
+        }
+
+
+
+        /*
+         * Validamos que el precio mínimo no sea superior
+         * al precio máximo.
+         */
+        if (
+                precioMinimo != null
+                        &&
+                        precioMaximo != null
+                        &&
+                        precioMinimo.compareTo(
+                                precioMaximo
+                        ) > 0
+        ) {
+
+            mostrarAlerta(
+                    Alert.AlertType.WARNING,
+                    "Rango de precios incorrecto",
+                    "El precio mínimo no puede ser mayor que el precio máximo."
+            );
+
+            return;
+        }
+
+
+
+        if (chkConStock.isSelected()) {
+
+            sql.append("""
+                   
+                    AND p.stock > 0
+                    """);
+        }
+
+
+
+
+        String orden =
+                cmbOrden.getValue();
+
+
+
+        if (orden == null) {
+
+            orden = "Nombre";
+        }
+
+
+
+        switch (orden) {
+
+            case "Precio menor a mayor" ->
+                    sql.append("""
+                           
+                            ORDER BY p.precio ASC
+                            """);
+
+            case "Precio mayor a menor" ->
+                    sql.append("""
+                           
+                            ORDER BY p.precio DESC
+                            """);
+
+            case "Fecha más reciente" ->
+                    sql.append("""
+                           
+                            ORDER BY p.fecha_creacion DESC
+                            """);
+
+            case "Fecha más antigua" ->
+                    sql.append("""
+                           
+                            ORDER BY p.fecha_creacion ASC
+                            """);
+
+            case "Stock mayor a menor" ->
+                    sql.append("""
+                           
+                            ORDER BY p.stock DESC
+                            """);
+
+            case "Stock menor a mayor" ->
+                    sql.append("""
+                           
+                            ORDER BY p.stock ASC
+                            """);
+
+            default ->
+                    sql.append("""
+                           
+                            ORDER BY p.nombre ASC
+                            """);
+        }
+
+
+
+        try (
+                Connection conexion =
+                        ConexionBD.getConnection();
+
+                PreparedStatement ps =
+                        conexion.prepareStatement(
+                                sql.toString()
+                        )
+        ) {
+
+            /*
+             * Recorremos la lista de parámetros para
+             * asignarlos dinámicamente al PreparedStatement.
+             */
+            for (
+                    int i = 0;
+                    i < parametros.size();
+                    i++
+            ) {
+
+                Object valor =
+                        parametros.get(i);
+
+
+
+                if (valor instanceof LocalDate fecha) {
+
+                    ps.setDate(
+                            i + 1,
+                            Date.valueOf(fecha)
+                    );
+
+                } else if (valor instanceof BigDecimal numero) {
+
+                    ps.setBigDecimal(
+                            i + 1,
+                            numero
+                    );
+
+                } else {
+
+                    ps.setObject(
+                            i + 1,
+                            valor
+                    );
+                }
+            }
+
+
+
+            try (
+                    ResultSet rs =
+                            ps.executeQuery()
+            ) {
+
+                while (rs.next()) {
+
+                    listaProductos.add(
+                            crearProductoDesdeResultSet(rs)
+                    );
+                }
+            }
+
+
+
+            tblProductos.setItems(
+                    listaProductos
+            );
+
+            if (listaProductos.isEmpty()) {
+
+                mostrarAlerta(
+                        Alert.AlertType.INFORMATION,
+                        "Sin resultados",
+                        "No existen productos que coincidan con los filtros aplicados."
+                );
+            }
+
+        } catch (SQLException e) {
+
+            mostrarErrorBaseDatos(
+                    "No se pudo realizar la búsqueda.",
+                    e
+            );
+        }
+    }
+}
