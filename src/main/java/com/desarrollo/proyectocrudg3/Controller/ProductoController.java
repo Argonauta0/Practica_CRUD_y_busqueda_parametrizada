@@ -1,236 +1,209 @@
 package com.desarrollo.proyectocrudg3.Controller;
 
+import com.desarrollo.proyectocrudg3.Database.DatabaseConnection;
+import com.desarrollo.proyectocrudg3.Model.Categoria;
+import com.desarrollo.proyectocrudg3.Model.Marca;
+import com.desarrollo.proyectocrudg3.Model.Producto;
+
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 public class ProductoController {
-    // Estos son los métodos iniciales para empezar a trabajar
 
-    private void configurarTableView(){
-        colCodigo.setCellValueFactory(data ->
-                new SimpleStringProperty(
-                        data.getValue().getCodigo()
-                ));
-        colNombre.setCellValueFactory(data ->
-                new SimpleStringProperty(
-                        data.getValue().getNombre()
-                )
-        );
-        colCategoria.setCellValueFactory(data ->
-                new SimpleStringProperty(
-                        data.getValue().getCategoria()
-                )
-        );
-    /*colDescripcion.setCellValueFactory(data ->
-            new SimpleStringProperty(
-                    data.getValue().getDescripcion()
-            )
-    );*/
-        colMarca.setCellValueFactory(data ->
-                new SimpleStringProperty(
-                        data.getValue().getMarca()
-                )
-        );
-        colPrecio.setCellValueFactory(data ->
-                new SimpleDoubleProperty(
-                        data.getValue().getPrecio()
-                ).asObject()
-        );
-        colStock.setCellValueFactory( data ->
-                new SimpleIntegerProperty(
-                        data.getValue().getStock()
-                ).asObject()
-        );
-        colFecha.setCellValueFactory(data ->
-                new SimpleObjectProperty<>(
-                        data.getValue().getFechaCreacion()
-                )
-        );
+    @FXML private TextField txtCodigo;
+    @FXML private TextField txtProducto;
+    @FXML private TextField txtDescripcion;
+    @FXML private TextField txtPrecio;
+    @FXML private TextField txtStock;
+    @FXML private DatePicker dpFecha;
+    @FXML private ComboBox<Categoria> cmbCategoria;
+    @FXML private ComboBox<Marca> cmbMarca;
 
-        tblProductos.setItems(listaProductos);
+    @FXML private Button btnNuevo;
+    @FXML private Button btnGuardar;
+    @FXML private Button btnActualizar;
+    @FXML private Button btnEliminar;
+    @FXML private Button btnBuscar;
+    @FXML private Button btnLimpiarFiltros;
+
+    @FXML private TableView<Producto> tblProducto;
+    @FXML private TableColumn<Producto, String> colCodigo;
+    @FXML private TableColumn<Producto, String> colNombre;
+    @FXML private TableColumn<Producto, String> colCategoria;
+    @FXML private TableColumn<Producto, String> colMarca;
+    @FXML private TableColumn<Producto, Double> colPrecio;
+    @FXML private TableColumn<Producto, Integer> colStock;
+    @FXML private TableColumn<Producto, Date> colFecha;
+
+    @FXML private TextField txtBuscar;
+    @FXML private ComboBox<Categoria> cmbCategoriaVista2;
+    @FXML private DatePicker dpDesde;
+    @FXML private DatePicker dpHasta;
+    @FXML private TextField txtPrecioMIN;
+    @FXML private TextField txtPrecioMAX;
+    @FXML private CheckBox chkExiste;
+    @FXML private ComboBox<String> cmbOrdenar;
+
+    private final ObservableList<Producto> listaProductos = FXCollections.observableArrayList();
+    private final ObservableList<Categoria> listaCategorias = FXCollections.observableArrayList();
+    private final ObservableList<Marca> listaMarcas = FXCollections.observableArrayList();
+
+    private Connection conectar() throws SQLException {
+        return DatabaseConnection.getConnection();
     }
 
+    @FXML
+    public void initialize() {
+        configurarTableView();
+        configurarSeleccionTableView();
+        cargarCategorias();
+        cargarMarcas();
+        cargarOpcionesOrden();
+        dpFecha.setValue(LocalDate.now());
+        cargarProductos();
+    }
 
-// Selección
+    private void configurarTableView() {
+        colCodigo.setCellValueFactory(data ->
+                new SimpleStringProperty(data.getValue().getCodigo()));
+        colNombre.setCellValueFactory(data ->
+                new SimpleStringProperty(data.getValue().getNombre()));
+        colCategoria.setCellValueFactory(data ->
+                new SimpleStringProperty(data.getValue().getCategoria()));
+        colMarca.setCellValueFactory(data ->
+                new SimpleStringProperty(data.getValue().getMarca()));
+        colPrecio.setCellValueFactory(data ->
+                new SimpleDoubleProperty(data.getValue().getPrecio()).asObject());
+        colStock.setCellValueFactory(data ->
+                new SimpleIntegerProperty(data.getValue().getStock()).asObject());
+        colFecha.setCellValueFactory(data ->
+                new SimpleObjectProperty<>(data.getValue().getFechaCreacion()));
 
-    private void configurarSeleccionTableView(){
-        tblProductos.getSelectionModel()
+        tblProducto.setItems(listaProductos);
+    }
+
+    private void configurarSeleccionTableView() {
+        tblProducto.getSelectionModel()
                 .selectedItemProperty()
                 .addListener((observable, oldValue, newValue) -> {
-                    if(newValue != null){
+                    if (newValue != null) {
                         cargarProductoEnFormulario(newValue);
                     }
                 });
     }
 
-
-
-    /**
-     * Recibe como parámetro un producto seleccionado del TableView
-     * @param p, es el producto seleccionado del TableView
-     */
-    private void cargarProductoEnFormulario(Producto p){
+    private void cargarProductoEnFormulario(Producto p) {
         txtCodigo.setText(p.getCodigo());
-        txtNombre.setText(p.getNombre());
+        txtProducto.setText(p.getNombre());
         txtDescripcion.setText(p.getDescripcion());
         txtPrecio.setText(String.valueOf(p.getPrecio()));
         txtStock.setText(String.valueOf(p.getStock()));
-        dpFechaCreacion.setValue(p.getFechaCreacion());
+        dpFecha.setValue(p.getFechaCreacion() != null ? p.getFechaCreacion().toLocalDate() : null);
 
-        /**
-         * Buscamos dentro del ComboBox el valor que corresponda al ID
-         */
-
-        for(Categoria categoria: listaCategorias){
-            if(categoria.getIdCategoria() == p.getIdCategoria()){
+        for (Categoria categoria : listaCategorias) {
+            if (categoria.getIdCategorias() == p.getIdCategoria()) {
                 cmbCategoria.setValue(categoria);
                 break;
             }
         }
 
-        /**
-         * Buscamos dentro del ComboBox el valor que corresponda al ID
-         */
-        for(Marca marca: listaMarcas){
-            if(marca.getIdMarca() == p.getIdMarca()){
+        for (Marca marca : listaMarcas) {
+            if (marca.getIdMarca() == p.getIdMarca()) {
                 cmbMarca.setValue(marca);
                 break;
             }
         }
     }
 
-    /**
-     * Consulta las categorias activas de la base de datos para mostrarlas dentro del ComboBox
-     */
     private void cargarCategorias() {
-
         listaCategorias.clear();
 
         String sql = """
-            SELECT
-                id_categoria,
-                nombre
-            FROM catalogos.categorias
-            WHERE estado = 1
-            ORDER BY nombre
-            """;
+                SELECT
+                    id_categorias,
+                    nombre
+                FROM catalogos.categorias
+                WHERE estado = 1
+                ORDER BY nombre
+                """;
 
         try (
-                Connection conexion =
-                        ConexionBD.getConnection();
-
-                PreparedStatement ps =
-                        conexion.prepareStatement(sql);
-
-                ResultSet rs =
-                        ps.executeQuery()
+                Connection conexion = conectar();
+                PreparedStatement ps = conexion.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()
         ) {
-
             while (rs.next()) {
-
-                Categoria categoria =
-                        new Categoria(
-                                rs.getInt("id_categoria"),
-                                rs.getString("nombre")
-                        );
-
+                Categoria categoria = new Categoria(
+                        rs.getInt("id_categorias"),
+                        rs.getString("nombre"),
+                        null,
+                        1
+                );
                 listaCategorias.add(categoria);
             }
 
-
-            /*
-             * Utilizamos copias de la lista para evitar que
-             * cada ComboBox tenga problemas de selección.
-             */
-            cmbCategoria.setItems(
-                    FXCollections.observableArrayList(
-                            listaCategorias
-                    )
-            );
-
-            cmbFiltroCategoria.setItems(
-                    FXCollections.observableArrayList(
-                            listaCategorias
-                    )
-            );
+            cmbCategoria.setItems(FXCollections.observableArrayList(listaCategorias));
+            cmbCategoriaVista2.setItems(FXCollections.observableArrayList(listaCategorias));
 
         } catch (SQLException e) {
-
-            mostrarErrorBaseDatos(
-                    "No se pudieron cargar las categorías.",
-                    e
-            );
+            mostrarErrorBaseDatos("No se pudieron cargar las categorías.", e);
         }
     }
 
-
-    /**
-     * Consulta las marcas activas almacenadas en PostgreSQL.
-     *
-     * Estas marcas se agregan al ComboBox utilizado en
-     * el formulario de productos.
-     */
     private void cargarMarcas() {
-
         listaMarcas.clear();
 
         String sql = """
-            SELECT
-                id_marca,
-                nombre
-            FROM catalogos.marcas
-            WHERE estado = 1
-            ORDER BY nombre
-            """;
+                SELECT
+                    id_marca,
+                    nombre
+                FROM catalogos.marcas
+                WHERE estado = 1
+                ORDER BY nombre
+                """;
 
         try (
-                Connection conexion =
-                        ConexionBD.getConnection();
-
-                PreparedStatement ps =
-                        conexion.prepareStatement(sql);
-
-                ResultSet rs =
-                        ps.executeQuery()
+                Connection conexion = conectar();
+                PreparedStatement ps = conexion.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()
         ) {
-
             while (rs.next()) {
-
-                Marca marca =
-                        new Marca(
-                                rs.getInt("id_marca"),
-                                rs.getString("nombre")
-                        );
-
+                Marca marca = new Marca(
+                        rs.getInt("id_marca"),
+                        rs.getString("nombre"),
+                        null,
+                        1
+                );
                 listaMarcas.add(marca);
             }
 
-            cmbMarca.setItems(
-                    FXCollections.observableArrayList(
-                            listaMarcas
-                    )
-            );
+            cmbMarca.setItems(FXCollections.observableArrayList(listaMarcas));
 
         } catch (SQLException e) {
-
-            mostrarErrorBaseDatos(
-                    "No se pudieron cargar las marcas.",
-                    e
-            );
+            mostrarErrorBaseDatos("No se pudieron cargar las marcas.", e);
         }
     }
 
-    /**
-     * Agrega al ComboBox las opciones disponibles para
-     * ordenar los resultados.
-     *
-     * El usuario no introduce directamente el nombre
-     * de una columna SQL.
-     *
-     * Esto permite utilizar una whitelist de valores
-     * conocidos y evita concatenar texto arbitrario
-     * dentro de ORDER BY.
-     */
     private void cargarOpcionesOrden() {
-
-        cmbOrden.setItems(
+        cmbOrdenar.setItems(
                 FXCollections.observableArrayList(
                         "Nombre",
                         "Precio menor a mayor",
@@ -241,99 +214,49 @@ public class ProductoController {
                         "Stock menor a mayor"
                 )
         );
-
-        cmbOrden.setValue("Nombre");
+        cmbOrdenar.setValue("Nombre");
     }
 
-// Crear producto desde resultset permite escribir los objetos coomo filas
-
-    private Producto crearProductoDesdeResultSet(
-            ResultSet rs
-    ) throws SQLException {
-
-        return new Producto(
-
-                rs.getInt(
-                        "id_producto"
-                ),
-
-                rs.getString(
-                        "codigo"
-                ),
-
-                rs.getString(
-                        "nombre"
-                ),
-
-                rs.getString(
-                        "descripcion"
-                ),
-
-                rs.getDouble(
-                        "precio"
-                ),
-
-                rs.getInt(
-                        "stock"
-                ),
-
-                rs.getDate(
-                        "fecha_creacion"
-                ).toLocalDate(),
-
-                rs.getInt(
-                        "id_categoria"
-                ),
-
-                rs.getString(
-                        "categoria"
-                ),
-
-                rs.getInt(
-                        "id_marca"
-                ),
-
-                rs.getString(
-                        "marca"
-                ),
-
-                rs.getInt(
-                        "estado"
-                )
+    private Producto crearProductoDesdeResultSet(ResultSet rs) throws SQLException {
+        Producto producto = new Producto(
+                rs.getInt("id_productos"),
+                rs.getString("codigo"),
+                rs.getString("nombre"),
+                rs.getString("descripcion"),
+                rs.getDouble("precio"),
+                rs.getInt("stock"),
+                rs.getDate("fecha_creacion"),
+                rs.getInt("id_categoria"),
+                rs.getInt("id_marca"),
+                rs.getInt("estado")
         );
+        producto.setCategoria(rs.getString("categoria"));
+        producto.setMarca(rs.getString("marca"));
+        return producto;
     }
+
+    @FXML
+    private void agregarProducto() {
+        limpiarFormulario();
+    }
+
     @FXML
     private void guardarProducto() {
-
         if (!validarFormulario()) {
             return;
         }
 
+        String codigo = txtCodigo.getText().trim();
 
-
-        String codigo =
-                txtCodigo.getText().trim();
-
-
-
-        /*
-         * Validación preventiva de UNIQUE.
-         */
         if (existeCodigo(codigo, null)) {
-
             mostrarAlerta(
                     Alert.AlertType.WARNING,
                     "Código duplicado",
-                    "El código " + codigo +
-                            " ya pertenece a otro producto."
+                    "El código " + codigo + " ya pertenece a otro producto."
             );
-
             txtCodigo.requestFocus();
-
             return;
         }
-
-
 
         String sql = """
                 INSERT INTO catalogos.productos
@@ -351,164 +274,106 @@ public class ProductoController {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
                 """;
 
-
-
         try (
-                Connection conexion =
-                        ConexionBD.getConnection();
-
-                PreparedStatement ps =
-                        conexion.prepareStatement(sql)
+                Connection conexion = conectar();
+                PreparedStatement ps = conexion.prepareStatement(sql)
         ) {
+            ps.setString(1, codigo);
+            ps.setString(2, txtProducto.getText().trim());
+            ps.setString(3, obtenerDescripcion());
+            ps.setBigDecimal(4, new BigDecimal(txtPrecio.getText().trim()));
+            ps.setInt(5, Integer.parseInt(txtStock.getText().trim()));
+            ps.setDate(6, Date.valueOf(dpFecha.getValue()));
+            ps.setInt(7, cmbCategoria.getValue().getIdCategorias());
+            ps.setInt(8, cmbMarca.getValue().getIdMarca());
 
-            ps.setString(
-                    1,
-                    codigo
-            );
-
-            ps.setString(
-                    2,
-                    txtNombre.getText().trim()
-            );
-
-            ps.setString(
-                    3,
-                    txtDescripcion.getText().trim()
-            );
-
-            ps.setBigDecimal(
-                    4,
-                    new BigDecimal(
-                            txtPrecio.getText().trim()
-                    )
-            );
-
-            ps.setInt(
-                    5,
-                    Integer.parseInt(
-                            txtStock.getText().trim()
-                    )
-            );
-
-            ps.setDate(
-                    6,
-                    Date.valueOf(
-                            dpFechaCreacion.getValue()
-                    )
-            );
-
-            ps.setInt(
-                    7,
-                    cmbCategoria.getValue()
-                            .getIdCategoria()
-            );
-
-            ps.setInt(
-                    8,
-                    cmbMarca.getValue()
-                            .getIdMarca()
-            );
-
-
-
-            int filasAfectadas =
-                    ps.executeUpdate();
-
-
+            int filasAfectadas = ps.executeUpdate();
 
             if (filasAfectadas > 0) {
-
                 mostrarAlerta(
                         Alert.AlertType.INFORMATION,
                         "Registro guardado",
                         "El producto fue registrado correctamente."
                 );
-
                 limpiarFormulario();
-
                 cargarProductos();
             }
-
         } catch (SQLException e) {
+            manejarErrorRestriccion(e, "No se pudo guardar el producto.");
+        }
+    }
 
-            /*
-             * Aunque JavaFX realizó previamente la comprobación,
-             * PostgreSQL continúa siendo la autoridad final.
-             *
-             * SQLState 23505 corresponde normalmente a una
-             * violación de UNIQUE en PostgreSQL.
-             */
-            if ("23505".equals(e.getSQLState())) {
+    private void cargarProductos() {
+        listaProductos.clear();
 
-                mostrarAlerta(
-                        Alert.AlertType.WARNING,
-                        "Registro duplicado",
-                        "El código ingresado ya existe."
-                );
+        String sql = """
+                SELECT
+                    p.id_productos,
+                    p.codigo,
+                    p.nombre,
+                    p.descripcion,
+                    p.precio,
+                    p.stock,
+                    p.fecha_creacion,
+                    p.id_categoria,
+                    c.nombre AS categoria,
+                    p.id_marca,
+                    m.nombre AS marca,
+                    p.estado
+                FROM catalogos.productos p
+                INNER JOIN catalogos.categorias c
+                    ON p.id_categoria = c.id_categorias
+                INNER JOIN catalogos.marcas m
+                    ON p.id_marca = m.id_marca
+                WHERE p.estado = 1
+                ORDER BY p.nombre ASC
+                """;
 
-            } else {
-
-                mostrarErrorBaseDatos(
-                        "No se pudo guardar el producto.",
-                        e
-                );
+        try (
+                Connection conexion = conectar();
+                PreparedStatement ps = conexion.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()
+        ) {
+            while (rs.next()) {
+                listaProductos.add(crearProductoDesdeResultSet(rs));
             }
+            tblProducto.setItems(listaProductos);
+        } catch (SQLException e) {
+            mostrarErrorBaseDatos("No se pudieron cargar los productos.", e);
         }
     }
 
     @FXML
     private void actualizarProducto() {
-
-        Producto productoSeleccionado =
-                tblProductos.getSelectionModel()
-                        .getSelectedItem();
-
+        Producto productoSeleccionado = tblProducto.getSelectionModel().getSelectedItem();
 
         if (productoSeleccionado == null) {
-
             mostrarAlerta(
                     Alert.AlertType.WARNING,
                     "Producto no seleccionado",
                     "Seleccione un producto del TableView antes de actualizar."
             );
-
             return;
         }
-
 
         if (!validarFormulario()) {
             return;
         }
 
+        String codigo = txtCodigo.getText().trim();
 
-        String codigo =
-                txtCodigo.getText().trim();
-
-
-        /*
-         * Se comprueba que otro producto diferente
-         * no esté utilizando el mismo código.
-         */
-        if (existeCodigo(
-                codigo,
-                productoSeleccionado.getIdProducto()
-        )) {
-
+        if (existeCodigo(codigo, productoSeleccionado.getIdProductos())) {
             mostrarAlerta(
                     Alert.AlertType.WARNING,
                     "Código duplicado",
                     "El código ingresado pertenece a otro producto."
             );
-
             txtCodigo.requestFocus();
-
             return;
         }
 
-
         String sql = """
                 UPDATE catalogos.productos
-
                 SET
                     codigo = ?,
                     nombre = ?,
@@ -518,651 +383,470 @@ public class ProductoController {
                     fecha_creacion = ?,
                     id_categoria = ?,
                     id_marca = ?
-
-                WHERE id_producto = ?
+                WHERE id_productos = ?
                 """;
 
-
         try (
-                Connection conexion =
-                        ConexionBD.getConnection();
-
-                PreparedStatement ps =
-                        conexion.prepareStatement(sql)
+                Connection conexion = conectar();
+                PreparedStatement ps = conexion.prepareStatement(sql)
         ) {
+            ps.setString(1, codigo);
+            ps.setString(2, txtProducto.getText().trim());
+            ps.setString(3, obtenerDescripcion());
+            ps.setBigDecimal(4, new BigDecimal(txtPrecio.getText().trim()));
+            ps.setInt(5, Integer.parseInt(txtStock.getText().trim()));
+            ps.setDate(6, Date.valueOf(dpFecha.getValue()));
+            ps.setInt(7, cmbCategoria.getValue().getIdCategorias());
+            ps.setInt(8, cmbMarca.getValue().getIdMarca());
+            ps.setInt(9, productoSeleccionado.getIdProductos());
 
-            ps.setString(
-                    1,
-                    codigo
-            );
-
-            ps.setString(
-                    2,
-                    txtNombre.getText().trim()
-            );
-
-            ps.setString(
-                    3,
-                    txtDescripcion.getText().trim()
-            );
-
-            ps.setBigDecimal(
-                    4,
-                    new BigDecimal(
-                            txtPrecio.getText().trim()
-                    )
-            );
-
-            ps.setInt(
-                    5,
-                    Integer.parseInt(
-                            txtStock.getText().trim()
-                    )
-            );
-
-            ps.setDate(
-                    6,
-                    Date.valueOf(
-                            dpFechaCreacion.getValue()
-                    )
-            );
-
-            ps.setInt(
-                    7,
-                    cmbCategoria.getValue()
-                            .getIdCategoria()
-            );
-
-            ps.setInt(
-                    8,
-                    cmbMarca.getValue()
-                            .getIdMarca()
-            );
-
-            ps.setInt(
-                    9,
-                    productoSeleccionado.getIdProducto()
-            );
-
-
-            int filasAfectadas =
-                    ps.executeUpdate();
-
+            int filasAfectadas = ps.executeUpdate();
 
             if (filasAfectadas > 0) {
-
                 mostrarAlerta(
                         Alert.AlertType.INFORMATION,
                         "Registro actualizado",
                         "El producto fue actualizado correctamente."
                 );
-
                 limpiarFormulario();
-
                 cargarProductos();
             }
-
         } catch (SQLException e) {
-
-            if ("23505".equals(e.getSQLState())) {
-
-                mostrarAlerta(
-                        Alert.AlertType.WARNING,
-                        "Código duplicado",
-                        "El código ingresado ya está siendo utilizado."
-                );
-
-            } else {
-
-                mostrarErrorBaseDatos(
-                        "No se pudo actualizar el producto.",
-                        e
-                );
-            }
+            manejarErrorRestriccion(e, "No se pudo actualizar el producto.");
         }
     }
 
     @FXML
     private void eliminarProducto() {
-
-        Producto productoSeleccionado =
-                tblProductos.getSelectionModel()
-                        .getSelectedItem();
-
+        Producto productoSeleccionado = tblProducto.getSelectionModel().getSelectedItem();
 
         if (productoSeleccionado == null) {
-
             mostrarAlerta(
                     Alert.AlertType.WARNING,
                     "Producto no seleccionado",
                     "Seleccione un producto antes de eliminarlo."
             );
-
             return;
         }
 
-
-        /*
-         * Se solicita confirmación para evitar que el usuario
-         * desactive accidentalmente un registro.
-         */
-        Alert confirmacion =
-                new Alert(Alert.AlertType.CONFIRMATION);
-
-        confirmacion.setTitle(
-                "Confirmar eliminación"
-        );
-
-        confirmacion.setHeaderText(
-                "Eliminar producto"
-        );
-
+        Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmacion.setTitle("Confirmar eliminación");
+        confirmacion.setHeaderText("Eliminar producto");
         confirmacion.setContentText(
-                "¿Desea desactivar el producto "
-                        + productoSeleccionado.getNombre()
-                        + "?"
+                "¿Desea desactivar el producto " + productoSeleccionado.getNombre() + "?"
         );
 
+        Optional<ButtonType> respuesta = confirmacion.showAndWait();
 
-        Optional<ButtonType> respuesta =
-                confirmacion.showAndWait();
-
-
-        if (
-                respuesta.isEmpty()
-                        ||
-                        respuesta.get() != ButtonType.OK
-        ) {
-
+        if (respuesta.isEmpty() || respuesta.get() != ButtonType.OK) {
             return;
         }
-
 
         String sql = """
                 UPDATE catalogos.productos
                 SET estado = 0
-                WHERE id_producto = ?
+                WHERE id_productos = ?
                 """;
 
-
         try (
-                Connection conexion =
-                        ConexionBD.getConnection();
-
-                PreparedStatement ps =
-                        conexion.prepareStatement(sql)
+                Connection conexion = conectar();
+                PreparedStatement ps = conexion.prepareStatement(sql)
         ) {
+            ps.setInt(1, productoSeleccionado.getIdProductos());
 
-            ps.setInt(
-                    1,
-                    productoSeleccionado.getIdProducto()
-            );
-
-
-            int filasAfectadas =
-                    ps.executeUpdate();
-
+            int filasAfectadas = ps.executeUpdate();
 
             if (filasAfectadas > 0) {
-
                 mostrarAlerta(
                         Alert.AlertType.INFORMATION,
                         "Producto eliminado",
                         "El producto fue desactivado correctamente."
                 );
-
                 limpiarFormulario();
-
                 cargarProductos();
             }
-
         } catch (SQLException e) {
-
-            mostrarErrorBaseDatos(
-                    "No se pudo eliminar el producto.",
-                    e
-            );
+            mostrarErrorBaseDatos("No se pudo eliminar el producto.", e);
         }
     }
+
     @FXML
     private void buscarProductos() {
         listaProductos.clear();
 
-        /*
-         * La consulta inicia con los INNER JOIN necesarios
-         * y con una condición permanente:
-         *
-         * p.estado = 1
-         *
-         * De esta forma nunca mostramos productos
-         * eliminados lógicamente.
-         */
         StringBuilder sql = new StringBuilder("""
                 SELECT
-                    p.id_producto,
+                    p.id_productos,
                     p.codigo,
                     p.nombre,
                     p.descripcion,
                     p.precio,
                     p.stock,
                     p.fecha_creacion,
-                    c.id_categoria,
+                    p.id_categoria,
                     c.nombre AS categoria,
-                    m.id_marca,
+                    p.id_marca,
                     m.nombre AS marca,
                     p.estado
                 FROM catalogos.productos p
                 INNER JOIN catalogos.categorias c
-                    ON p.id_categoria = c.id_categoria
+                    ON p.id_categoria = c.id_categorias
                 INNER JOIN catalogos.marcas m
                     ON p.id_marca = m.id_marca
                 WHERE p.estado = 1
                 """);
 
+        List<Object> parametros = new ArrayList<>();
 
-
-        /*
-         * Aquí almacenaremos los valores que posteriormente
-         * serán enviados al PreparedStatement.
-         */
-        List<Object> parametros =
-                new ArrayList<>();
-
-        String texto =
-                txtFiltroTexto.getText().trim();
-
-
+        String texto = txtBuscar.getText().trim();
 
         if (!texto.isBlank()) {
-
-            /*
-             * OR permite que el texto coincida con código
-             * o nombre.
-             *
-             * ILIKE permite búsquedas parciales sin importar
-             * mayúsculas y minúsculas.
-             */
             sql.append("""
-                   
                     AND (
                         p.codigo ILIKE ?
                         OR p.nombre ILIKE ?
                     )
                     """);
-
-
-
-            parametros.add(
-                    "%" + texto + "%"
-            );
-
-            parametros.add(
-                    "%" + texto + "%"
-            );
+            parametros.add("%" + texto + "%");
+            parametros.add("%" + texto + "%");
         }
 
-        Categoria categoria =
-                cmbFiltroCategoria.getValue();
-
-
+        Categoria categoria = cmbCategoriaVista2.getValue();
 
         if (categoria != null) {
-
             sql.append("""
-                   
                     AND p.id_categoria = ?
                     """);
-
-            parametros.add(
-                    categoria.getIdCategoria()
-            );
+            parametros.add(categoria.getIdCategorias());
         }
 
-        LocalDate fechaDesde =
-                dpFiltroDesde.getValue();
-
-
+        LocalDate fechaDesde = dpDesde.getValue();
 
         if (fechaDesde != null) {
-
             sql.append("""
-                   
                     AND p.fecha_creacion >= ?
                     """);
-
             parametros.add(fechaDesde);
         }
 
-        LocalDate fechaHasta =
-                dpFiltroHasta.getValue();
-
-
+        LocalDate fechaHasta = dpHasta.getValue();
 
         if (fechaHasta != null) {
-
             sql.append("""
-                   
                     AND p.fecha_creacion <= ?
                     """);
-
             parametros.add(fechaHasta);
         }
 
-
-
-        /*
-         * Verificamos que las fechas tengan sentido.
-         *
-         * "Desde" no debería ser posterior a "Hasta".
-         */
-        if (
-                fechaDesde != null
-                        &&
-                        fechaHasta != null
-                        &&
-                        fechaDesde.isAfter(fechaHasta)
-        ) {
-
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
             mostrarAlerta(
                     Alert.AlertType.WARNING,
                     "Rango de fechas incorrecto",
                     "La fecha inicial no puede ser posterior a la fecha final."
             );
-
             return;
         }
 
         BigDecimal precioMinimo = null;
 
-
-
-        if (!txtPrecioMin.getText().isBlank()) {
-
+        if (!txtPrecioMIN.getText().isBlank()) {
             try {
+                precioMinimo = new BigDecimal(txtPrecioMIN.getText().trim());
 
-                precioMinimo =
-                        new BigDecimal(
-                                txtPrecioMin
-                                        .getText()
-                                        .trim()
-                        );
-
-
-
-                if (
-                        precioMinimo.compareTo(
-                                BigDecimal.ZERO
-                        ) < 0
-                ) {
-
+                if (precioMinimo.compareTo(BigDecimal.ZERO) < 0) {
                     mostrarAlerta(
                             Alert.AlertType.WARNING,
                             "Precio incorrecto",
                             "El precio mínimo no puede ser negativo."
                     );
-
                     return;
                 }
 
-
-
                 sql.append("""
-                       
                         AND p.precio >= ?
                         """);
-
                 parametros.add(precioMinimo);
-
             } catch (NumberFormatException e) {
-
                 mostrarAlerta(
                         Alert.AlertType.WARNING,
                         "Precio incorrecto",
                         "El precio mínimo debe ser numérico."
                 );
-
-                txtPrecioMin.requestFocus();
-
+                txtPrecioMIN.requestFocus();
                 return;
             }
         }
 
         BigDecimal precioMaximo = null;
 
-
-
-        if (!txtPrecioMax.getText().isBlank()) {
-
+        if (!txtPrecioMAX.getText().isBlank()) {
             try {
+                precioMaximo = new BigDecimal(txtPrecioMAX.getText().trim());
 
-                precioMaximo =
-                        new BigDecimal(
-                                txtPrecioMax
-                                        .getText()
-                                        .trim()
-                        );
-
-
-
-                if (
-                        precioMaximo.compareTo(
-                                BigDecimal.ZERO
-                        ) < 0
-                ) {
-
+                if (precioMaximo.compareTo(BigDecimal.ZERO) < 0) {
                     mostrarAlerta(
                             Alert.AlertType.WARNING,
                             "Precio incorrecto",
                             "El precio máximo no puede ser negativo."
                     );
-
                     return;
                 }
 
-
-
                 sql.append("""
-                       
                         AND p.precio <= ?
                         """);
-
                 parametros.add(precioMaximo);
-
             } catch (NumberFormatException e) {
-
                 mostrarAlerta(
                         Alert.AlertType.WARNING,
                         "Precio incorrecto",
                         "El precio máximo debe ser numérico."
                 );
-
-                txtPrecioMax.requestFocus();
-
+                txtPrecioMAX.requestFocus();
                 return;
             }
         }
 
-
-
-        /*
-         * Validamos que el precio mínimo no sea superior
-         * al precio máximo.
-         */
-        if (
-                precioMinimo != null
-                        &&
-                        precioMaximo != null
-                        &&
-                        precioMinimo.compareTo(
-                                precioMaximo
-                        ) > 0
-        ) {
-
+        if (precioMinimo != null && precioMaximo != null && precioMinimo.compareTo(precioMaximo) > 0) {
             mostrarAlerta(
                     Alert.AlertType.WARNING,
                     "Rango de precios incorrecto",
                     "El precio mínimo no puede ser mayor que el precio máximo."
             );
-
             return;
         }
 
-
-
-        if (chkConStock.isSelected()) {
-
+        if (chkExiste.isSelected()) {
             sql.append("""
-                   
                     AND p.stock > 0
                     """);
         }
 
-
-
-
-        String orden =
-                cmbOrden.getValue();
-
-
+        String orden = cmbOrdenar.getValue();
 
         if (orden == null) {
-
             orden = "Nombre";
         }
 
-
-
         switch (orden) {
-
-            case "Precio menor a mayor" ->
-                    sql.append("""
-                           
-                            ORDER BY p.precio ASC
-                            """);
-
-            case "Precio mayor a menor" ->
-                    sql.append("""
-                           
-                            ORDER BY p.precio DESC
-                            """);
-
-            case "Fecha más reciente" ->
-                    sql.append("""
-                           
-                            ORDER BY p.fecha_creacion DESC
-                            """);
-
-            case "Fecha más antigua" ->
-                    sql.append("""
-                           
-                            ORDER BY p.fecha_creacion ASC
-                            """);
-
-            case "Stock mayor a menor" ->
-                    sql.append("""
-                           
-                            ORDER BY p.stock DESC
-                            """);
-
-            case "Stock menor a mayor" ->
-                    sql.append("""
-                           
-                            ORDER BY p.stock ASC
-                            """);
-
-            default ->
-                    sql.append("""
-                           
-                            ORDER BY p.nombre ASC
-                            """);
+            case "Precio menor a mayor" -> sql.append("ORDER BY p.precio ASC\n");
+            case "Precio mayor a menor" -> sql.append("ORDER BY p.precio DESC\n");
+            case "Fecha más reciente" -> sql.append("ORDER BY p.fecha_creacion DESC\n");
+            case "Fecha más antigua" -> sql.append("ORDER BY p.fecha_creacion ASC\n");
+            case "Stock mayor a menor" -> sql.append("ORDER BY p.stock DESC\n");
+            case "Stock menor a mayor" -> sql.append("ORDER BY p.stock ASC\n");
+            default -> sql.append("ORDER BY p.nombre ASC\n");
         }
 
-
-
         try (
-                Connection conexion =
-                        ConexionBD.getConnection();
-
-                PreparedStatement ps =
-                        conexion.prepareStatement(
-                                sql.toString()
-                        )
+                Connection conexion = conectar();
+                PreparedStatement ps = conexion.prepareStatement(sql.toString())
         ) {
-
-            /*
-             * Recorremos la lista de parámetros para
-             * asignarlos dinámicamente al PreparedStatement.
-             */
-            for (
-                    int i = 0;
-                    i < parametros.size();
-                    i++
-            ) {
-
-                Object valor =
-                        parametros.get(i);
-
-
+            for (int i = 0; i < parametros.size(); i++) {
+                Object valor = parametros.get(i);
 
                 if (valor instanceof LocalDate fecha) {
-
-                    ps.setDate(
-                            i + 1,
-                            Date.valueOf(fecha)
-                    );
-
+                    ps.setDate(i + 1, Date.valueOf(fecha));
                 } else if (valor instanceof BigDecimal numero) {
-
-                    ps.setBigDecimal(
-                            i + 1,
-                            numero
-                    );
-
+                    ps.setBigDecimal(i + 1, numero);
                 } else {
-
-                    ps.setObject(
-                            i + 1,
-                            valor
-                    );
+                    ps.setObject(i + 1, valor);
                 }
             }
 
-
-
-            try (
-                    ResultSet rs =
-                            ps.executeQuery()
-            ) {
-
+            try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-
-                    listaProductos.add(
-                            crearProductoDesdeResultSet(rs)
-                    );
+                    listaProductos.add(crearProductoDesdeResultSet(rs));
                 }
             }
 
-
-
-            tblProductos.setItems(
-                    listaProductos
-            );
+            tblProducto.setItems(listaProductos);
 
             if (listaProductos.isEmpty()) {
-
                 mostrarAlerta(
                         Alert.AlertType.INFORMATION,
                         "Sin resultados",
                         "No existen productos que coincidan con los filtros aplicados."
                 );
             }
-
         } catch (SQLException e) {
-
-            mostrarErrorBaseDatos(
-                    "No se pudo realizar la búsqueda.",
-                    e
-            );
+            mostrarErrorBaseDatos("No se pudo realizar la búsqueda.", e);
         }
+    }
+
+    @FXML
+    private void limpiarFiltros() {
+        txtBuscar.clear();
+        cmbCategoriaVista2.setValue(null);
+        dpDesde.setValue(null);
+        dpHasta.setValue(null);
+        txtPrecioMIN.clear();
+        txtPrecioMAX.clear();
+        chkExiste.setSelected(false);
+        cmbOrdenar.setValue("Nombre");
+        cargarProductos();
+    }
+
+    private boolean validarFormulario() {
+        if (txtCodigo.getText().isBlank()) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Dato requerido", "Ingrese el código.");
+            txtCodigo.requestFocus();
+            return false;
+        }
+        if (txtCodigo.getText().trim().length() > 20) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Código demasiado largo", "El código admite máximo 20 caracteres.");
+            txtCodigo.requestFocus();
+            return false;
+        }
+        if (txtProducto.getText().isBlank()) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Dato requerido", "Ingrese el nombre.");
+            txtProducto.requestFocus();
+            return false;
+        }
+        if (txtProducto.getText().trim().length() > 120) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Nombre demasiado largo", "El nombre admite máximo 120 caracteres.");
+            txtProducto.requestFocus();
+            return false;
+        }
+        if (txtDescripcion.getText() != null && txtDescripcion.getText().trim().length() > 120) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Descripción demasiado larga", "La descripción admite máximo 120 caracteres.");
+            txtDescripcion.requestFocus();
+            return false;
+        }
+        try {
+            BigDecimal precio = new BigDecimal(txtPrecio.getText().trim());
+            if (precio.compareTo(BigDecimal.ZERO) <= 0) {
+                mostrarAlerta(Alert.AlertType.WARNING, "Precio incorrecto", "El precio debe ser mayor que cero.");
+                txtPrecio.requestFocus();
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Precio incorrecto", "El precio debe ser numérico.");
+            txtPrecio.requestFocus();
+            return false;
+        }
+        try {
+            int stock = Integer.parseInt(txtStock.getText().trim());
+            if (stock < 0) {
+                mostrarAlerta(Alert.AlertType.WARNING, "Stock incorrecto", "El stock no puede ser negativo.");
+                txtStock.requestFocus();
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Stock incorrecto", "El stock debe ser un número entero.");
+            txtStock.requestFocus();
+            return false;
+        }
+        if (dpFecha.getValue() == null) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Dato requerido", "Seleccione la fecha de creación.");
+            return false;
+        }
+        if (cmbCategoria.getValue() == null) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Dato requerido", "Seleccione una categoría.");
+            return false;
+        }
+        if (cmbMarca.getValue() == null) {
+            mostrarAlerta(Alert.AlertType.WARNING, "Dato requerido", "Seleccione una marca.");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean existeCodigo(String codigo, Integer idExcluir) {
+        String sql = """
+                SELECT 1
+                FROM catalogos.productos
+                WHERE codigo = ?
+                AND (CAST(? AS INTEGER) IS NULL OR id_productos <> ?)
+                """;
+
+        try (
+                Connection conexion = conectar();
+                PreparedStatement ps = conexion.prepareStatement(sql)
+        ) {
+            ps.setString(1, codigo);
+            ps.setObject(2, idExcluir, Types.INTEGER);
+            ps.setObject(3, idExcluir, Types.INTEGER);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            mostrarErrorBaseDatos("No se pudo verificar el código.", e);
+            return true;
+        }
+    }
+
+    private String obtenerDescripcion() {
+        String descripcion = txtDescripcion.getText();
+        if (descripcion == null || descripcion.isBlank()) {
+            return null;
+        }
+        return descripcion.trim();
+    }
+
+    private void manejarErrorRestriccion(SQLException e, String mensajeGeneral) {
+        String detalle = e.getMessage() != null ? e.getMessage() : "";
+
+        if ("23505".equals(e.getSQLState())) {
+            if (detalle.contains("productos_nombre_key")) {
+                mostrarAlerta(
+                        Alert.AlertType.WARNING,
+                        "Nombre duplicado",
+                        "Ya existe un producto con ese nombre."
+                );
+                txtProducto.requestFocus();
+            } else {
+                mostrarAlerta(
+                        Alert.AlertType.WARNING,
+                        "Código duplicado",
+                        "El código ingresado ya existe."
+                );
+                txtCodigo.requestFocus();
+            }
+        } else if ("23514".equals(e.getSQLState())) {
+            mostrarAlerta(
+                    Alert.AlertType.WARNING,
+                    "Dato no permitido",
+                    "Algún valor no cumple las reglas de la base de datos (precio mayor que 0, stock mayor o igual a 0)."
+            );
+        } else if ("22001".equals(e.getSQLState())) {
+            mostrarAlerta(
+                    Alert.AlertType.WARNING,
+                    "Texto demasiado largo",
+                    "Uno de los campos excede la longitud permitida."
+            );
+        } else {
+            mostrarErrorBaseDatos(mensajeGeneral, e);
+        }
+    }
+
+    private void limpiarFormulario() {
+        txtCodigo.clear();
+        txtProducto.clear();
+        txtDescripcion.clear();
+        txtPrecio.clear();
+        txtStock.clear();
+        dpFecha.setValue(LocalDate.now());
+        cmbCategoria.setValue(null);
+        cmbMarca.setValue(null);
+        tblProducto.getSelectionModel().clearSelection();
+        txtCodigo.requestFocus();
+    }
+
+    private void mostrarAlerta(Alert.AlertType tipo, String titulo, String mensaje) {
+        Alert alerta = new Alert(tipo);
+        alerta.setTitle(titulo);
+        alerta.setHeaderText(null);
+        alerta.setContentText(mensaje);
+        alerta.showAndWait();
+    }
+
+    private void mostrarErrorBaseDatos(String mensaje, SQLException e) {
+        e.printStackTrace();
+        mostrarAlerta(
+                Alert.AlertType.ERROR,
+                "Error de base de datos",
+                mensaje + "\n\nDetalle: " + e.getMessage()
+        );
     }
 }

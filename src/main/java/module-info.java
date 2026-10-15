@@ -10,4 +10,5 @@ module com.desarrollo.proyectocrudg3 {
     opens com.desarrollo.proyectocrudg3.Model to javafx.fxml;
 
     exports com.desarrollo.proyectocrudg3;
+    exports com.desarrollo.proyectocrudg3.Controller;
 }
